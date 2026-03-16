@@ -1,0 +1,57 @@
+name: Version Check
+description: Validate the VERSION file, derive the release tag, and optionally fail if the tag already exists.
+
+inputs:
+  fail_if_tag_exists:
+    description: Whether to fail when the derived git tag already exists.
+    required: false
+    default: "false"
+
+outputs:
+  version:
+    description: The semantic version read from the VERSION file.
+    value: ${{ steps.version.outputs.version }}
+  tag:
+    description: The git tag derived from the VERSION file.
+    value: ${{ steps.version.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read VERSION and validate semantic version
+      id: version
+      shell: bash
+      run: |
+        if [ ! -f VERSION ]; then
+          echo "VERSION file is required at the repository root."
+          exit 1
+        fi
+
+        VERSION="$(tr -d '[:space:]' < VERSION)"
+
+        if [ -z "$VERSION" ]; then
+          echo "VERSION file must not be empty."
+          exit 1
+        fi
+
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "VERSION must use semantic versioning in the form 1.2.3."
+          exit 1
+        fi
+
+        TAG="v${VERSION}"
+
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+    - name: Check whether tag already exists
+      if: ${{ inputs.fail_if_tag_exists == 'true' }}
+      shell: bash
+      run: |
+        TAG="${{ steps.version.outputs.tag }}"
+        git fetch --tags
+
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "Tag $TAG already exists. Update VERSION before continuing."
+          exit 1
+        fi

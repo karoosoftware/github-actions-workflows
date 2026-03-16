@@ -12,6 +12,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Validate VERSION file
+        uses: karoosoftware/github-actions-workflows/actions/version-check@main
+        with:
+          fail_if_tag_exists: "true"
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
